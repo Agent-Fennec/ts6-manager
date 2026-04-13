@@ -252,7 +252,7 @@ function ConnectionsTab() {
               <Input
                 value={form.queryBotNickname}
                 onChange={(e) => setForm({ ...form, queryBotNickname: e.target.value })}
-                placeholder="TBG Server"
+                placeholder="TS6 Server"
               />
             </div>
             <div>
@@ -260,7 +260,7 @@ function ConnectionsTab() {
               <Input
                 value={form.sshBotNickname}
                 onChange={(e) => setForm({ ...form, sshBotNickname: e.target.value })}
-                placeholder="TBG Query"
+                placeholder="TS6 Query"
               />
             </div>
             <div>
