@@ -287,23 +287,70 @@ When a music bot is connected to a channel, users in that channel can control it
 
 ## Changes from upstream
 
-This repo is based on [clusterzx/ts6-manager](https://github.com/clusterzx/ts6-manager) with the following changes:
+This repo is based on [clusterzx/ts6-manager](https://github.com/clusterzx/ts6-manager) and includes substantial changes across dependencies, features, and stability.
+
+### Dependency upgrades
+
+All major dependencies have been brought to their latest versions:
+
+| Package | Upstream | This repo |
+|---------|----------|-----------|
+| TypeScript | 5 | 6 |
+| Prisma | 6 | 7 |
+| React | 18 | 19 |
+| Express | 4 | 5 |
+| Vite | 6 | 7 |
+| Tailwind CSS | 3 | 4 |
+| React Router | 6 | 7 |
+| Zod | 3 | 4 |
+| recharts | 2 | 3 |
+| node-cron | 3 | 4 |
+
+Express 5 required a webhook route syntax fix for `path-to-regexp` v8. Tailwind 4 required updating the `tailwind-merge` integration and replacing the `outline-solid` variant.
+
+### Prisma adapter: `better-sqlite3` → `@prisma/adapter-libsql`
+
+`@prisma/adapter-better-sqlite3` is a native Node.js C++ binding that must be compiled for the host architecture and runtime. This was replaced with `@prisma/adapter-libsql`, a pure JavaScript/WASM implementation with no native dependencies — required for running under Bun, which does not load native Node addons.
 
 ### SQLite stability under disk pressure
 
-`SQLITE_FULL` errors are now caught at three boundaries — the bot engine execution loop, `executeAction`, and `getVariable`/`setVariable` — so unhandled exceptions no longer propagate when SQLite hits its storage limit. Additionally, `journal_mode=MEMORY` is set at startup, which keeps SQLite's write-ahead journal in memory rather than on disk. This means the database remains accessible even when disk space is fully exhausted.
+`SQLITE_FULL` errors are caught at three boundaries — the bot engine execution loop, `executeAction`, and `getVariable`/`setVariable` — so unhandled exceptions no longer propagate when SQLite hits its storage limit. `journal_mode=MEMORY` is also set at startup, keeping SQLite's write-ahead journal in memory rather than on disk.
 
-### Prisma adapter swap: `better-sqlite3` → `@prisma/adapter-libsql`
+### Bot flow engine additions
 
-The original uses `@prisma/adapter-better-sqlite3`, which is a native Node.js C++ binding that must be compiled for the host architecture and runtime. This was replaced with `@prisma/adapter-libsql`, a pure JavaScript/WASM implementation with no native dependencies. This is required for running under Bun, which does not load native Node addons.
+- **Three new trigger events:** `client_is_recording`, nickname change detection, and a third TS3 event type
+- **Trigger event filters:** UI section in BotEditor to filter which events fire a flow
+- **Generate Token action:** Creates a privilege key from a flow
+- **Set Client Channel Group action:** Assigns a channel group to a client from a flow
+- **AFK mover `checkMuteState`:** Option to move double-muted (mic + speakers) clients immediately rather than waiting for the AFK timer
 
-### Configurable bot nicknames
+### Conditions and variable fixes
 
-The query bot and SSH event bot nicknames are now set at runtime from `TsServerConfig` (`queryBotNickname`, `sshBotNickname`) rather than hardcoded values. Both fields are exposed in the Settings UI and applied to live connections when saved.
+- `{{...}}` placeholder wrappers are stripped before passing values to `expr-eval`, fixing all scope-based condition comparisons
+- Numeric strings in the temp scope are coerced to numbers for equality checks
+
+### Bot and server management features
+
+- **Configurable bot nicknames:** Query bot (`queryBotNickname`) and SSH event bot (`sshBotNickname`) nicknames are set at runtime from `TsServerConfig` and exposed in the Settings UI
+- **Query Bot Channel:** Configurable channel the query bot joins on connect, with a channel picker in Settings. Defaults to the server default channel when unset
+- **`ChannelSelect` component:** Replaces all channel ID text inputs in BotEditor with a searchable dropdown
+- **Protected Channels:** Replaced text input with a multi-select channel picker
+- **Now-playing descriptions:** Music bots update the channel description with the currently playing track
+- **Create Privilege Key dialog:** Generate tokens directly from the Tokens page with server/channel group assignment
+- **Save connection without re-entering API key:** The API key field is optional on edit; unchanged if left blank
+
+### Code quality and reliability
+
+- **Pino logger** replaces `console.log` throughout the backend, with `pino-pretty` enabled in container deployments
+- **Connection pool health checks** and `autoStart` error surfacing
+- **Auth middleware** converted to async/await; `JWT_SECRET` causes a fatal startup error if missing in production
+- **`parseIntParam` helper** for safe integer parsing from route params
+- **`identityData` excluded** from music bots list query (performance)
+- **`MusicBots` component** split into focused subcomponents
 
 ### Valkey/Redis cache
 
-Adds `valkeyGet` / `valkeySet` / `valkeyDelete` helpers with graceful degradation — cache operations are non-fatal and silently skipped when Redis is unavailable, so the app functions normally without a cache.
+Adds `valkeyGet` / `valkeySet` / `valkeyDelete` helpers with graceful degradation — cache operations are non-fatal and silently skipped when Redis is unavailable.
 
 ---
 
