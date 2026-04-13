@@ -33,7 +33,7 @@
     "@tanstack/react-table": "^8.20.0",
     "@ts6/common": "workspace:*",
     "@xyflow/react": "^12.3.0",
-    "axios": "^1.7.0",
+    "axios": "^1.15.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "date-fns": "^4.1.0",
