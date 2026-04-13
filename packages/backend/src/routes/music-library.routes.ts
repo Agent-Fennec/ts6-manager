@@ -3,6 +3,7 @@ import { parseIntParam } from '../utils/params.js';
 import { requireRole } from '../middleware/rbac.js';
 import { AppError } from '../middleware/error-handler.js';
 import { downloadYouTube, searchYouTube, getYouTubeUrlInfo } from '../voice/audio/youtube.js';
+import { validateUrl } from '../utils/url-validator.js';
 import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
@@ -117,10 +118,22 @@ musicLibraryRoutes.delete('/songs/:id', async (req: Request, res: Response, next
 });
 
 // POST /youtube/search — Search YouTube
+const YOUTUBE_DOMAINS = new Set(['youtube.com', 'www.youtube.com', 'youtu.be', 'music.youtube.com', 'm.youtube.com']);
+
+function assertYouTubeUrl(url: string): void {
+  let parsed: URL;
+  try { parsed = new URL(url); } catch { throw new AppError(400, 'Invalid URL'); }
+  if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') throw new AppError(400, 'Invalid URL protocol');
+  if (!YOUTUBE_DOMAINS.has(parsed.hostname)) throw new AppError(400, 'URL must be a YouTube link');
+}
+
 musicLibraryRoutes.post('/youtube/search', async (req: Request, res: Response, next) => {
   try {
     const { query } = req.body;
-    if (!query) throw new AppError(400, 'query is required');
+    if (!query || typeof query !== 'string') throw new AppError(400, 'query is required');
+    if (query.length > 200) throw new AppError(400, 'query too long');
+    // Reject embedded flags or URL-like strings
+    if (/--|https?:\/\//.test(query)) throw new AppError(400, 'Invalid query');
     const results = await searchYouTube(query, 10);
     res.json(results);
   } catch (err) { next(err); }
@@ -133,6 +146,8 @@ musicLibraryRoutes.post('/youtube/download', async (req: Request, res: Response,
     const configId = parseIntParam(req.params.configId, 'configId');
     const { url } = req.body;
     if (!url) throw new AppError(400, 'url is required');
+    assertYouTubeUrl(url);
+    await validateUrl(url);
 
     const { filePath, info } = await downloadYouTube(url, MUSIC_DIR);
     const fileStats = fs.statSync(filePath);
@@ -167,6 +182,8 @@ musicLibraryRoutes.post('/youtube/info', async (req: Request, res: Response, nex
   try {
     const { url } = req.body;
     if (!url) throw new AppError(400, 'url is required');
+    assertYouTubeUrl(url);
+    await validateUrl(url);
     const info = await getYouTubeUrlInfo(url);
     res.json(info);
   } catch (err) { next(err); }
@@ -179,12 +196,15 @@ musicLibraryRoutes.post('/youtube/download-batch', async (req: Request, res: Res
     const configId = parseIntParam(req.params.configId, 'configId');
     const { urls } = req.body;
     if (!Array.isArray(urls) || urls.length === 0) throw new AppError(400, 'urls array is required');
+    if (urls.length > 50) throw new AppError(400, 'Too many URLs in batch (max 50)');
 
     const results: any[] = [];
     const errors: string[] = [];
 
     for (const url of urls) {
       try {
+        assertYouTubeUrl(url);
+        await validateUrl(url);
         // Check if already downloaded
         const existing = await prisma.song.findFirst({
           where: { sourceUrl: url, serverConfigId: configId },

@@ -31,7 +31,7 @@ export function getYtCookieFile(): string | null {
 }
 
 export function getCookieArgs(): string[] {
-  const args: string[] = ["--remote-components", "ejs:github"];
+  const args: string[] = [];
   if (ytCookieFile) {
     args.push("--cookies", ytCookieFile);
   }

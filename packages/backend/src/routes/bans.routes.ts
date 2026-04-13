@@ -15,7 +15,17 @@ banRoutes.get('/', async (req: Request, res: Response, next) => {
 });
 
 banRoutes.post('/', requireRole('admin'), async (req: Request, res: Response, next) => {
-  try { res.status(201).json(await getClient(req).execute(getSid(req), 'banadd', req.body)); } catch (err) { next(err); }
+  try {
+    const { ip, uid, mytsid, name, banreason, time } = req.body;
+    const params: Record<string, string | number> = {};
+    if (ip !== undefined) params.ip = String(ip);
+    if (uid !== undefined) params.uid = String(uid);
+    if (mytsid !== undefined) params.mytsid = String(mytsid);
+    if (name !== undefined) params.name = String(name);
+    if (banreason !== undefined) params.banreason = String(banreason);
+    if (time !== undefined) params.time = Number(time);
+    res.status(201).json(await getClient(req).execute(getSid(req), 'banadd', params));
+  } catch (err) { next(err); }
 });
 
 banRoutes.delete('/:banid', requireRole('admin'), async (req: Request, res: Response, next) => {
