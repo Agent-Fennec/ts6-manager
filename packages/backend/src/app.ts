@@ -59,13 +59,22 @@ export function createApp(): Express {
   });
   app.use('/api/auth/login', authLimiter);
   app.use('/api/auth/refresh', authLimiter);
+  app.use('/api/setup', authLimiter);
+
+  const webhookLimiter = rateLimit({
+    windowMs: 60 * 1000, // 1 minute
+    max: 60,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { error: 'Too many webhook requests' },
+  });
 
   // Public routes
   app.use('/api/setup', setupRoutes);
   app.use('/api/auth', authRoutes);
 
   // Bot webhook route (unauthenticated — called by external systems)
-  app.all('/api/bots/webhook/*path', (req, res) => {
+  app.all('/api/bots/webhook/*path', webhookLimiter, (req, res) => {
     const engine = req.app.locals.botEngine;
     if (!engine) return res.status(503).json({ error: 'Bot engine not running' });
     engine.handleWebhookRequest(req, res);
