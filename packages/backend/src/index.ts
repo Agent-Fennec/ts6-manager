@@ -56,8 +56,13 @@ async function main() {
         const wsUrl = new URL(req.url!, `http://${req.headers.host}`);
         const token = wsUrl.searchParams.get('token');
         if (!token) return done(false, 401, 'Missing token');
-        jwt.verify(token, config.jwtSecret, { algorithms: ['HS256'] });
-        done(true);
+        const payload = jwt.verify(token, config.jwtSecret, { algorithms: ['HS256'] }) as { sub?: string | number };
+        const userId = payload.sub !== undefined ? Number(payload.sub) : NaN;
+        if (isNaN(userId)) return done(false, 401, 'Invalid token');
+        prisma.user.findUnique({ where: { id: userId } }).then((user) => {
+          if (!user || !user.enabled) return done(false, 401, 'Account disabled or not found');
+          done(true);
+        }).catch(() => done(false, 500, 'Internal error'));
       } catch {
         done(false, 401, 'Invalid token');
       }

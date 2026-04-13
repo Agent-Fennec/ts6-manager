@@ -42,6 +42,13 @@ settingsRoutes.get('/yt-cookies', requireAdmin, (_req: Request, res: Response) =
   });
 });
 
+// Validate that content looks like a Netscape HTTP Cookie File
+function validateCookieFileContent(content: string): boolean {
+  // Strip BOM if present, then trim leading whitespace/newlines
+  const stripped = content.replace(/^\uFEFF/, '').trimStart();
+  return /^#\s*(netscape\s+)?http\s+cookie\s+file/i.test(stripped);
+}
+
 // POST /api/settings/yt-cookies — Upload cookie file
 settingsRoutes.post('/yt-cookies', requireAdmin, upload.single('cookies'), (req: Request, res: Response, next) => {
   try {
@@ -51,9 +58,16 @@ settingsRoutes.post('/yt-cookies', requireAdmin, upload.single('cookies'), (req:
       if (!text || typeof text !== 'string') {
         throw new AppError(400, 'No cookie file or text provided');
       }
+      if (!validateCookieFileContent(text)) {
+        throw new AppError(400, 'Invalid cookie file format. File must be a Netscape HTTP Cookie File.');
+      }
       fs.mkdirSync(COOKIE_DIR, { recursive: true });
       fs.writeFileSync(COOKIE_PATH, text, 'utf-8');
     } else {
+      const fileText = req.file.buffer.toString('utf-8');
+      if (!validateCookieFileContent(fileText)) {
+        throw new AppError(400, 'Invalid cookie file format. File must be a Netscape HTTP Cookie File.');
+      }
       fs.mkdirSync(COOKIE_DIR, { recursive: true });
       fs.writeFileSync(COOKIE_PATH, req.file.buffer);
     }

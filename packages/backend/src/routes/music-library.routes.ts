@@ -241,6 +241,11 @@ musicLibraryRoutes.post('/youtube/download-batch', async (req: Request, res: Res
 
 // Helper: get audio duration via ffprobe
 function getAudioDuration(filePath: string): Promise<number> {
+  const resolvedPath = path.resolve(filePath);
+  const resolvedMusicDir = path.resolve(MUSIC_DIR);
+  if (!resolvedPath.startsWith(resolvedMusicDir + path.sep) && resolvedPath !== resolvedMusicDir) {
+    return Promise.reject(new AppError(400, 'Invalid file path'));
+  }
   return new Promise((resolve, reject) => {
     const proc = spawn('ffprobe', [
       '-v', 'quiet',

@@ -591,13 +591,14 @@ export class BotEngine {
     // timing oracle that distinguishes "path not found" from "wrong secret".
     let triggered = 0;
     for (const wh of matching) {
-      if (!wh.secret) continue;
-
-      const secretBuf = Buffer.from(wh.secret);
-      const providedBuf = Buffer.from(providedSecret);
-      if (secretBuf.length !== providedBuf.length || !crypto.timingSafeEqual(secretBuf, providedBuf)) {
-        continue;
+      if (wh.secret) {
+        const secretBuf = Buffer.from(wh.secret);
+        const providedBuf = Buffer.from(providedSecret);
+        if (secretBuf.length !== providedBuf.length || !crypto.timingSafeEqual(secretBuf, providedBuf)) {
+          continue;
+        }
       }
+      // If wh.secret is not set, treat as intentionally open — no validation needed
 
       const flow = this.flows.get(wh.flowId);
       if (!flow) continue;
