@@ -214,7 +214,17 @@ export class ExecutionContext {
 
   async evaluateCondition(expression: string): Promise<boolean> {
     try {
-      const scope = await this.buildExpressionScope();
+      // Guard against prototype pollution in expr-eval (no patched version exists).
+      // Block access to dangerous properties before evaluation.
+      if (/(__proto__|constructor|prototype)\s*[.[(]/.test(expression)) {
+        logger.warn(`[ExecutionContext] Blocked dangerous expression pattern: "${expression}"`);
+        return false;
+      }
+
+      const rawScope = await this.buildExpressionScope();
+      // Use a null-prototype object so there is no __proto__ chain to pollute.
+      const scope = Object.assign(Object.create(null) as Record<string, unknown>, rawScope);
+
       // Strip {{...}} template wrappers so scope-variable expressions like
       // "{{temp.savedRoles}} != null" become "temp.savedRoles != null".
       // This prevents template-resolved multi-value strings (e.g. comma-separated
