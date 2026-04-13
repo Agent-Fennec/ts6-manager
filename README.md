@@ -306,6 +306,8 @@ All major dependencies have been brought to their latest versions:
 | recharts | 2 | 3 |
 | node-cron | 3 | 4 |
 
+The backend runtime was also migrated from Node.js to **Bun**, replacing the `node dist/index.js` start script with `bun dist/index.js`. Bun's native SQLite support required the Prisma adapter swap described below.
+
 Express 5 required a webhook route syntax fix for `path-to-regexp` v8. Tailwind 4 required updating the `tailwind-merge` integration and replacing the `outline-solid` variant.
 
 ### Prisma adapter: `better-sqlite3` → `@prisma/adapter-libsql`
