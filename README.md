@@ -287,15 +287,25 @@ When a music bot is connected to a channel, users in that channel can control it
 
 ## Changes from upstream
 
-This repo is based on [clusterzx/ts6-manager](https://github.com/clusterzx/ts6-manager) with the following improvements:
+This repo is based on [clusterzx/ts6-manager](https://github.com/clusterzx/ts6-manager) with the following changes:
 
-| Change | Why |
-|--------|-----|
-| SQLite `SQLITE_FULL` error suppression at engine, action, and variable boundaries | Prevents crash loops when the host disk fills up |
-| `journal_mode=MEMORY` set at startup | Keeps the DB operational under disk-full conditions |
-| `@prisma/adapter-libsql` replaces `better-sqlite3` | Pure JS/WASM adapter — works under Bun without a Node native ABI |
-| Bot nickname fix | Corrects nickname handling in certain network environments |
-| Valkey/Redis cache integration | Enables in-process caching for the backend |
+### SQLite stability under disk pressure
+
+`SQLITE_FULL` errors are now caught at three boundaries — the bot engine execution loop, `executeAction`, and `getVariable`/`setVariable` — so unhandled exceptions no longer propagate when SQLite hits its storage limit. Additionally, `journal_mode=MEMORY` is set at startup, which keeps SQLite's write-ahead journal in memory rather than on disk. This means the database remains accessible even when disk space is fully exhausted.
+
+### Prisma adapter swap: `better-sqlite3` → `@prisma/adapter-libsql`
+
+The original uses `@prisma/adapter-better-sqlite3`, which is a native Node.js C++ binding that must be compiled for the host architecture and runtime. This was replaced with `@prisma/adapter-libsql`, a pure JavaScript/WASM implementation with no native dependencies. This is required for running under Bun, which does not load native Node addons.
+
+### Configurable bot nicknames
+
+The query bot and SSH event bot nicknames are now set at runtime from `TsServerConfig` (`queryBotNickname`, `sshBotNickname`) rather than hardcoded values. Both fields are exposed in the Settings UI and applied to live connections when saved.
+
+### Valkey/Redis cache
+
+Adds `valkeyGet` / `valkeySet` / `valkeyDelete` helpers with graceful degradation — cache operations are non-fatal and silently skipped when Redis is unavailable, so the app functions normally without a cache.
+
+---
 
 For Pterodactyl-specific packaging (Dockerfile, egg, patch scripts), see [ts6-manager-ptero](../ts6-manager-ptero).
 
