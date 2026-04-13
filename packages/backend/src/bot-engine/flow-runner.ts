@@ -15,7 +15,7 @@ import type {
   ConditionNodeData, DelayNodeData, VariableNodeData, LogNodeData,
   ValkeyGetActionData, ValkeySetActionData, ValkeyDeleteActionData,
   GroupRemoveAllActionData, GroupRestoreListActionData,
-  GenerateTokenActionData, SetClientChannelGroupActionData,
+  GenerateTokenActionData, SetClientChannelGroupActionData, SetBannerUrlActionData,
 } from '@ts6/common';
 import axios from 'axios';
 import { validateUrl } from '../utils/url-validator.js';
@@ -141,9 +141,6 @@ export class FlowRunner {
         });
       }
 
-      // SQLITE_FULL is non-fatal — disk-full should not kill flow execution
-      if (String(err.message).includes('SQLITE_FULL')) return;
-
       throw err;
     }
   }
@@ -267,6 +264,7 @@ export class FlowRunner {
         case 'generateCode': await this.executeGenerateCode(data, ctx); break;
         case 'generateToken': await this.executeGenerateToken(data as GenerateTokenActionData, ctx, client); break;
         case 'setClientChannelGroup': await this.executeSetClientChannelGroup(data as SetClientChannelGroupActionData, ctx, client); break;
+        case 'setBannerUrl': await this.executeSetBannerUrl(data as SetBannerUrlActionData, ctx, client); break;
         case 'valkeyGet': await this.executeValkeyGet(data as ValkeyGetActionData, ctx); break;
         case 'valkeySet': await this.executeValkeySet(data as ValkeySetActionData, ctx); break;
         case 'valkeyDelete': await this.executeValkeyDelete(data as ValkeyDeleteActionData, ctx); break;
@@ -280,9 +278,8 @@ export class FlowRunner {
       }
     } catch (err: any) {
       await this.log(ctx, node, 'error', `Action '${actionType}' failed: ${err.message}`);
-      // SQLITE_FULL is non-fatal — disk-full should not stop TS3 operations
-      if (String(err.message).includes('SQLITE_FULL')) return;
-      throw err;
+      // Wrap with action context so engine logs show which action failed
+      throw new Error(`[${actionType}] ${err.message}`);
     }
   }
 
@@ -447,7 +444,12 @@ export class FlowRunner {
       throw new Error(`WebQuery command "${command}" is not allowed in bot flows`);
     }
 
-    const result = await client.execute(ctx.sid, command, resolved);
+    let result: any;
+    try {
+      result = await client.execute(ctx.sid, command, resolved);
+    } catch (err: any) {
+      throw new Error(`${command}(${JSON.stringify(resolved)}): ${err.message}`);
+    }
     ctx.setTemp('lastResult', JSON.stringify(result));
     if (data.storeAs && result != null) {
       // clientinfo returns a single object; clientlist returns an array — handle both
@@ -993,6 +995,15 @@ export class FlowRunner {
       ctx.setTemp(data.storeAs, result);
     }
     await this.log(ctx, null, 'info', `Set client ${cldbid} to channel group ${cgid} in channel ${cid}`);
+  }
+
+  private async executeSetBannerUrl(data: SetBannerUrlActionData, ctx: ExecutionContext, client: WebQueryClient): Promise<void> {
+    const clid = ctx.eventData.clid;
+    if (!clid) throw new Error('setBannerUrl: clid not available in event data');
+
+    const url = await ctx.resolveTemplate(data.bannerUrl);
+    await client.executePost(ctx.sid, 'clientedit', { clid, client_hostbanner_url: url });
+    await this.log(ctx, null, 'info', `Set banner URL for client ${clid}`);
   }
 
   private async executeValkeyGet(data: ValkeyGetActionData, ctx: ExecutionContext): Promise<void> {

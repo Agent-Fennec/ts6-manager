@@ -11,7 +11,7 @@ import type {
   FlowDefinition, FlowNode, FlowEdge,
   EventTriggerData, CronTriggerData, WebhookTriggerData, CommandTriggerData,
   AnimatedChannelActionData,
-  GenerateTokenActionData, SetClientChannelGroupActionData,
+  GenerateTokenActionData, SetClientChannelGroupActionData, SetBannerUrlActionData,
 } from '@ts6/common';
 import { AnimationManager } from './animation-manager.js';
 import type { AnimationConfig } from './animation-manager.js';
@@ -267,6 +267,13 @@ function normalizeFlowData(raw: any): FlowDefinition {
         channelId: config.channelId || '',
         storeAs: config.storeAs || undefined,
       } as SetClientChannelGroupActionData;
+    } else if (nodeType === 'action_setBannerUrl') {
+      type = 'action';
+      data = {
+        actionType: 'setBannerUrl',
+        label,
+        bannerUrl: config.bannerUrl || '',
+      } as SetBannerUrlActionData;
     } else if (nodeType === 'log') {
       type = 'log';
       data = { nodeType: 'log', label, level: config.level || 'info', message: config.message || '' };
@@ -934,7 +941,6 @@ export class BotEngine {
 
     this.flowRunner.execute(flow, triggerNodeId, triggerType, eventData, timezone)
       .catch(err => {
-        if (String(err.message).includes('SQLITE_FULL')) return;
         logger.error(`[BotEngine] Flow ${flow.id} execution error: ${err.message}`);
       })
       .finally(() => {

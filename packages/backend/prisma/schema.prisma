@@ -217,7 +217,10 @@ model Widget {
   serverConfigId  Int
   serverConfig    TsServerConfig @relation(fields: [serverConfigId], references: [id], onDelete: Cascade)
   virtualServerId Int            @default(1)
+  type            String         @default("widget")
   theme           String         @default("dark")
+  bannerSize      String         @default("standard")
+  bannerLayout    String?
   showChannelTree Boolean        @default(true)
   showClients     Boolean        @default(true)
   hideEmptyChannels Boolean      @default(false)

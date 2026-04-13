@@ -204,6 +204,71 @@ export interface PaginatedResponse<T> {
 // === Server Widget / Banner ===
 
 export type WidgetTheme = 'dark' | 'light' | 'transparent' | 'neon' | 'military' | 'minimal';
+export type WidgetType = 'widget' | 'banner';
+export type BannerSize = 'standard' | 'wide'; // 630×236 or 921×236
+
+export type BannerElementId =
+  | 'server-name'
+  | 'server-host'
+  | 'stat-online'
+  | 'stat-uptime'
+  | 'stat-channels'
+  | 'stat-bandwidth'
+  | 'stat-time'        // HH:MM clock
+  | 'stat-date'        // DD.MM.YYYY date
+  | 'stat-version'     // server version string
+  | 'stat-client-info' // top-client bandwidth + connection block
+  | 'client-table'
+  | 'timestamp'
+  | 'custom-text';
+
+export interface BannerElement {
+  id: BannerElementId;
+  visible: boolean;
+  x: number; // 0–100 (% of banner width)
+  y: number; // 0–100 (% of banner height)
+  fontSize: number;
+  color: string;
+  align: 'left' | 'center' | 'right';
+  maxItems?: number;   // client-table: max rows
+  showColumns?: BannerClientColumn[]; // client-table: which columns
+  value?: string;      // custom-text: content
+}
+
+export type BannerClientColumn = 'country' | 'nickname' | 'upload' | 'download' | 'online-time' | 'connections';
+
+export interface BannerLayout {
+  backgroundType: 'solid' | 'gradient' | 'stars';
+  backgroundColor: string;
+  backgroundGradientEnd?: string;
+  accentColor: string;
+  showBottomBar?: boolean;
+  elements: BannerElement[];
+}
+
+export const DEFAULT_BANNER_LAYOUT: BannerLayout = {
+  backgroundType: 'stars',
+  backgroundColor: '#0b1322',
+  backgroundGradientEnd: '#0f1f3d',
+  accentColor: '#e6edf3',
+  showBottomBar: true,
+  elements: [
+    { id: 'server-name',      visible: true,  x: 50, y: 45, fontSize: 22, color: '#e6edf3', align: 'center' },
+    { id: 'stat-time',        visible: true,  x: 97, y: 22, fontSize: 30, color: '#e6edf3', align: 'right' },
+    { id: 'stat-date',        visible: true,  x: 97, y: 36, fontSize: 10, color: '#8b949e', align: 'right' },
+    { id: 'stat-version',     visible: true,  x: 97, y: 5,  fontSize: 8,  color: '#4a5568', align: 'right' },
+    { id: 'stat-client-info', visible: true,  x: 3,  y: 5,  fontSize: 9,  color: '#c9d1d9', align: 'left' },
+    { id: 'stat-online',      visible: false, x: 3,  y: 23, fontSize: 11, color: '#8b949e', align: 'left' },
+    { id: 'stat-uptime',      visible: false, x: 3,  y: 32, fontSize: 11, color: '#8b949e', align: 'left' },
+    { id: 'stat-channels',    visible: false, x: 38, y: 23, fontSize: 11, color: '#8b949e', align: 'left' },
+    { id: 'stat-bandwidth',   visible: false, x: 38, y: 32, fontSize: 11, color: '#8b949e', align: 'left' },
+    { id: 'client-table',     visible: false, x: 3,  y: 44, fontSize: 10, color: '#e6edf3', align: 'left',
+      maxItems: 5, showColumns: ['country', 'nickname', 'upload', 'download', 'online-time', 'connections'] },
+    { id: 'server-host',      visible: false, x: 3,  y: 85, fontSize: 9,  color: '#8b949e', align: 'left' },
+    { id: 'timestamp',        visible: false, x: 97, y: 85, fontSize: 9,  color: '#8b949e', align: 'right' },
+    { id: 'custom-text',      visible: false, x: 50, y: 85, fontSize: 9,  color: '#8b949e', align: 'center', value: '' },
+  ],
+};
 
 export interface WidgetConfig {
   id: number;
@@ -212,6 +277,9 @@ export interface WidgetConfig {
   serverConfigId: number;
   virtualServerId: number;
   theme: WidgetTheme;
+  type: WidgetType;
+  bannerSize: BannerSize;
+  bannerLayout: string | null; // JSON-serialised BannerLayout
   showChannelTree: boolean;
   showClients: boolean;
   hideEmptyChannels: boolean;
@@ -224,7 +292,10 @@ export interface CreateWidgetRequest {
   name: string;
   serverConfigId: number;
   virtualServerId?: number;
+  type?: WidgetType;
   theme?: WidgetTheme;
+  bannerSize?: BannerSize;
+  bannerLayout?: string;
   showChannelTree?: boolean;
   showClients?: boolean;
   hideEmptyChannels?: boolean;
@@ -234,10 +305,24 @@ export interface CreateWidgetRequest {
 export interface UpdateWidgetRequest {
   name?: string;
   theme?: WidgetTheme;
+  bannerSize?: BannerSize;
+  bannerLayout?: string;
   showChannelTree?: boolean;
   showClients?: boolean;
   hideEmptyChannels?: boolean;
   maxChannelDepth?: number;
+}
+
+/** A single client entry included in banner data */
+export interface BannerClient {
+  clid: number;
+  uid: string;             // client_unique_identifier — used for personalized banner URL routing
+  nickname: string;
+  country: string;         // 2-letter ISO code, e.g. "US"
+  onlineDuration: number;  // seconds
+  totalConnections: number;
+  uploadBytesLastMin: number;
+  downloadBytesLastMin: number;
 }
 
 export interface WidgetData {
@@ -247,12 +332,19 @@ export interface WidgetData {
   onlineUsers: number;
   maxClients: number;
   uptime: number;
+  channelCount: number;
+  serverUploadBytesLastMin: number;
+  serverDownloadBytesLastMin: number;
   platform: string;
   version: string;
   theme: WidgetTheme;
+  type: WidgetType;
+  bannerSize: BannerSize;
+  bannerLayout: string | null;
   showChannelTree: boolean;
   showClients: boolean;
   channelTree: WidgetChannelNode[];
+  bannerClients: BannerClient[];
   fetchedAt: string;
 }
 

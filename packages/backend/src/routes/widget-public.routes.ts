@@ -3,7 +3,8 @@ import crypto from 'crypto';
 import type { ConnectionPool } from '../ts-client/connection-pool.js';
 import { buildWidgetTree } from '../widget/build-widget-tree.js';
 import { renderWidgetSvg } from '../widget/widget-svg.js';
-import type { WidgetData } from '@ts6/common';
+import { renderBannerSvg } from '../widget/banner-svg.js';
+import type { WidgetData, BannerClient } from '@ts6/common';
 import type { VoiceBotManager } from '../voice/voice-bot-manager.js';
 import { config } from '../config.js';
 import { parseIntParam } from '../utils/params.js';
@@ -43,16 +44,47 @@ async function getWidgetData(token: string, req: Request): Promise<WidgetData | 
 
   const sid = widget.virtualServerId;
 
-  const [serverInfoRaw, channelListRaw, clientListRaw] = await Promise.all([
+  const isBanner = widget.type === 'banner';
+
+  const [serverInfoRaw, channelListRaw, clientListRaw, musicBotNicknamesRaw] = await Promise.all([
     client.execute(sid, 'serverinfo'),
-    client.execute(sid, 'channellist'),
-    client.execute(sid, 'clientlist'),
+    client.execute(sid, 'channellist', { '-topic': '', '-flags': '', '-voice': '', '-limits': '', '-icon': '', '-secondsempty': '' }),
+    // Fetch extra flags for banner client rows (country, times, bandwidth, uid)
+    isBanner
+      ? client.execute(sid, 'clientlist', { '-away': '', '-voice': '', '-country': '', '-times': '', '-bandwidth': '', '-uid': '' })
+      : client.execute(sid, 'clientlist', { '-away': '', '-voice': '' }),
+    // Fetch managed music bot nicknames so we can exclude them from banner client rows
+    isBanner
+      ? prisma.musicBot.findMany({ where: { serverConfigId: widget.serverConfigId }, select: { nickname: true } })
+      : Promise.resolve([]),
   ]);
 
   const info = Array.isArray(serverInfoRaw) ? serverInfoRaw[0] : serverInfoRaw;
   const channels = Array.isArray(channelListRaw) ? channelListRaw : [];
   const clients = Array.isArray(clientListRaw) ? clientListRaw : [];
   const onlineClients = clients.filter((c: any) => String(c.client_type) === '0');
+
+  // Nicknames of ts6-manager-managed music bots — excluded from banner client rows
+  const botNicknames = new Set(
+    (musicBotNicknamesRaw as { nickname: string }[]).map((b) => b.nickname),
+  );
+
+  // Build banner client rows (human clients only, sorted by online duration desc)
+  const bannerClients: BannerClient[] = isBanner
+    ? onlineClients
+        .filter((c: any) => !botNicknames.has(String(c.client_nickname)))
+        .map((c: any): BannerClient => ({
+          clid: Number(c.clid),
+          uid: String(c.client_unique_identifier || ''),
+          nickname: String(c.client_nickname || '?'),
+          country: String(c.client_country || '').toUpperCase(),
+          onlineDuration: Number(c.connection_connected_time || 0),
+          totalConnections: Number(c.client_totalconnections || 0),
+          uploadBytesLastMin: Number(c.connection_bandwidth_sent_last_minute_total || 0),
+          downloadBytesLastMin: Number(c.connection_bandwidth_received_last_minute_total || 0),
+        }))
+        .sort((a, b) => b.onlineDuration - a.onlineDuration)
+    : [];
 
   const data: WidgetData = {
     serverName: info.virtualserver_name || 'TeamSpeak Server',
@@ -61,15 +93,22 @@ async function getWidgetData(token: string, req: Request): Promise<WidgetData | 
     onlineUsers: onlineClients.length,
     maxClients: Number(info.virtualserver_maxclients) || 0,
     uptime: Number(info.virtualserver_uptime) || 0,
+    channelCount: Number(info.virtualserver_channelsonline) || channels.length,
+    serverUploadBytesLastMin: Number(info.connection_bandwidth_sent_last_minute_total || 0),
+    serverDownloadBytesLastMin: Number(info.connection_bandwidth_received_last_minute_total || 0),
     // M8: Redact server version/platform to prevent targeted vulnerability scanning
     platform: 'TeamSpeak',
     version: '',
     theme: widget.theme as WidgetData['theme'],
+    type: (widget.type as WidgetData['type']) ?? 'widget',
+    bannerSize: (widget.bannerSize as WidgetData['bannerSize']) ?? 'standard',
+    bannerLayout: widget.bannerLayout ?? null,
     showChannelTree: widget.showChannelTree,
     showClients: widget.showClients,
     channelTree: widget.showChannelTree
       ? buildWidgetTree(channels, clients, widget.maxChannelDepth, widget.showClients, widget.hideEmptyChannels ?? false)
       : [],
+    bannerClients,
     fetchedAt: new Date().toISOString(),
   };
 
@@ -91,7 +130,7 @@ widgetPublicRoutes.get('/:token/data', async (req: Request, res: Response, next)
     const data = await getWidgetData(token, req);
     if (!data) return res.status(404).json({ error: 'Widget not found or server offline' });
     res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Cache-Control', 'public, max-age=45');
+    res.setHeader('Cache-Control', 'no-store');
     res.json(data);
   } catch (err) { next(err); }
 });
@@ -125,6 +164,66 @@ widgetPublicRoutes.get('/:token/image.png', async (req: Request, res: Response, 
       pngBuffer = Buffer.from(resvg.render().asPng());
     } catch {
       // If @resvg/resvg-js is not available, fall back to SVG
+      res.setHeader('Content-Type', 'image/svg+xml');
+      res.setHeader('Access-Control-Allow-Origin', '*');
+      return res.send(svg);
+    }
+
+    res.setHeader('Content-Type', 'image/png');
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Cache-Control', 'public, max-age=45');
+    res.send(pngBuffer);
+  } catch (err) { next(err); }
+});
+
+/** Reorder bannerClients so the client with the given UID is first (personalized banner). */
+function personalizeBannerData(data: WidgetData, cuid: string | undefined): WidgetData {
+  if (!cuid || data.bannerClients.length === 0) return data;
+  const idx = data.bannerClients.findIndex((c) => c.uid === cuid);
+  if (idx <= 0) return data;
+  return {
+    ...data,
+    bannerClients: [
+      data.bannerClients[idx],
+      ...data.bannerClients.slice(0, idx),
+      ...data.bannerClients.slice(idx + 1),
+    ],
+  };
+}
+
+// GET /:token/banner.svg — Banner SVG (landscape, fixed dimensions)
+widgetPublicRoutes.get('/:token/banner.svg', async (req: Request, res: Response, next) => {
+  try {
+    const token = req.params.token as string;
+    const cuid = req.query.cuid as string | undefined;
+    const raw = await getWidgetData(token, req);
+    if (!raw) return res.status(404).send('Banner not found');
+    const data = personalizeBannerData(raw, cuid);
+    const svg = renderBannerSvg(data);
+    res.setHeader('Content-Type', 'image/svg+xml');
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Cache-Control', 'public, max-age=45');
+    res.send(svg);
+  } catch (err) { next(err); }
+});
+
+// GET /:token/banner.png — Banner PNG (landscape, fixed dimensions)
+widgetPublicRoutes.get('/:token/banner.png', async (req: Request, res: Response, next) => {
+  try {
+    const token = req.params.token as string;
+    const cuid = req.query.cuid as string | undefined;
+    const raw = await getWidgetData(token, req);
+    if (!raw) return res.status(404).send('Banner not found');
+    const data = personalizeBannerData(raw, cuid);
+    const svg = renderBannerSvg(data);
+    const bannerWidth = data.bannerSize === 'wide' ? 921 : 630;
+
+    let pngBuffer: Buffer;
+    try {
+      const { Resvg } = await import('@resvg/resvg-js');
+      const resvg = new Resvg(svg, { fitTo: { mode: 'width' as const, value: bannerWidth } });
+      pngBuffer = Buffer.from(resvg.render().asPng());
+    } catch {
       res.setHeader('Content-Type', 'image/svg+xml');
       res.setHeader('Access-Control-Allow-Origin', '*');
       return res.send(svg);

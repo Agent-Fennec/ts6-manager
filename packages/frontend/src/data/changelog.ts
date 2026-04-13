@@ -1,4 +1,4 @@
-export const APP_VERSION = '2.4.0';
+export const APP_VERSION = '2.6.0';
 
 export interface ChangelogEntry {
   version: string;
@@ -7,6 +7,28 @@ export interface ChangelogEntry {
 }
 
 export const changelog: ChangelogEntry[] = [
+  {
+    version: '2.6.0',
+    date: '2026-04-12',
+    changes: [
+      { type: 'feat', text: 'Banners: space-theme redesign — dark starfield background with deterministic star placement, top-right clock (HH:MM), date, client bandwidth panel, and bottom stats bar (Clients / Channels / Uptime)' },
+      { type: 'feat', text: 'Banners: per-client personalized banners — each connected user sees their own stats via a ?cuid= query param resolved by the setBannerUrl bot flow action on clientconnect' },
+      { type: 'feat', text: 'Banners: "Copy Personalized URL" button copies the URL template with {{client_unique_identifier}} placeholder ready to paste into a setBannerUrl bot action' },
+      { type: 'feat', text: 'Bot Flows: new Set Banner URL action node — calls clientedit to set a per-client host banner URL; pairs with the clientconnect trigger for automatic personalization' },
+      { type: 'fix',  text: 'Banners: music bots managed by ts6-manager are now excluded from the client info block — human users are shown instead' },
+      { type: 'feat', text: 'Banner Editor: background type selector — Solid / Gradient / Stars; gradient end color relabeled "Highlight color" in stars mode; bottom bar visibility toggle' },
+    ],
+  },
+  {
+    version: '2.5.0',
+    date: '2026-04-12',
+    changes: [
+      { type: 'feat', text: 'Banners: dynamic server banner feature for TS3 and TS6 — generates a live PNG/SVG image at 630×236 or 921×236' },
+      { type: 'feat', text: 'Banners: client table shows per-client upload/download rates, online duration, total connections, and country code' },
+      { type: 'feat', text: 'Banners: interactive visual editor with drag-to-reposition elements, color pickers, font size, alignment, and gradient background support' },
+      { type: 'feat', text: 'Banners: banner URL shown on management page with one-click copy and inline TS3/TS6 setup instructions' },
+    ],
+  },
   {
     version: '2.4.0',
     date: '2026-04-07',

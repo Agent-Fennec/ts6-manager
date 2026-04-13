@@ -2,6 +2,13 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { widgetApi } from '@/api/widget.api';
 import type { CreateWidgetRequest, UpdateWidgetRequest } from '@ts6/common';
 
+export function useBanners() {
+  return useQuery({
+    queryKey: ['widgets', 'banners'],
+    queryFn: widgetApi.listBanners,
+  });
+}
+
 export function useWidgets() {
   return useQuery({
     queryKey: ['widgets'],

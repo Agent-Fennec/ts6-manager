@@ -45,6 +45,8 @@ const Settings = lazy(() => import('@/pages/Settings'));
 const NotFound = lazy(() => import('@/pages/NotFound'));
 const WidgetPage = lazy(() => import('@/pages/WidgetPage'));
 const SetupPage = lazy(() => import('@/pages/SetupPage'));
+const BannerPage = lazy(() => import('@/pages/BannerPage'));
+const BannerEditor = lazy(() => import('@/pages/BannerEditor'));
 
 export function App() {
   return (
@@ -76,6 +78,8 @@ export function App() {
               <Route path="/bots" element={<AdminRoute><BotList /></AdminRoute>} />
               <Route path="/bots/:botId" element={<AdminRoute><BotEditor /></AdminRoute>} />
               <Route path="/music-bots" element={<AdminRoute><MusicBots /></AdminRoute>} />
+              <Route path="/banners" element={<AdminRoute><BannerPage /></AdminRoute>} />
+              <Route path="/banners/:id/edit" element={<AdminRoute><BannerEditor /></AdminRoute>} />
               <Route path="/settings" element={<Settings />} />
               <Route path="*" element={<NotFound />} />
             </Route>

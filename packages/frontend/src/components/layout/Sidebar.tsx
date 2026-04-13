@@ -3,7 +3,7 @@ import { NavLink, useLocation } from 'react-router';
 import {
   LayoutDashboard, Server, Hash, Users, Shield, ShieldCheck,
   Lock, Ban, KeyRound, FolderOpen, MessageSquareWarning, Mail,
-  ScrollText, Settings, Bot, Cpu, ChevronLeft, ChevronRight, Music, ListMusic,
+  ScrollText, Settings, Bot, Cpu, ChevronLeft, ChevronRight, Music, ListMusic, Image,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useUiStore } from '@/stores/ui.store';
@@ -64,6 +64,7 @@ const navSections = [
     items: [
       { to: '/bots', icon: Bot, label: 'Bot Flows', adminOnly: true },
       { to: '/music-bots', icon: Music, label: 'Music Bots', adminOnly: true },
+      { to: '/banners', icon: Image, label: 'Banners', adminOnly: true },
     ],
   },
 ];

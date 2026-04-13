@@ -90,7 +90,8 @@ export type ActionNodeData =
   | GroupRemoveAllActionData
   | GroupRestoreListActionData
   | GenerateTokenActionData
-  | SetClientChannelGroupActionData;
+  | SetClientChannelGroupActionData
+  | SetBannerUrlActionData;
 
 export interface KickActionData {
   actionType: 'kick';
@@ -194,7 +195,6 @@ export interface AfkMoverActionData {
   afkChannelId: string;
   idleThresholdSeconds: number;
   exemptGroupIds?: string;
-  checkMuteState?: boolean;
 }
 
 export interface IdleKickerActionData {
@@ -317,6 +317,13 @@ export interface SetClientChannelGroupActionData {
   channelGroupId: string;   // cgid
   channelId: string;        // cid
   storeAs?: string;         // optional — raw result storage
+}
+
+export interface SetBannerUrlActionData {
+  actionType: 'setBannerUrl';
+  label: string;
+  /** Full URL template — use {{client_unique_identifier}} where the client UID should appear */
+  bannerUrl: string;
 }
 
 // --- Log ---
