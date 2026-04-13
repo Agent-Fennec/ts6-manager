@@ -1,4 +1,4 @@
-import { Parser } from 'expr-eval';
+import { create, all } from 'mathjs';
 import { logger } from '../utils/logger.js';
 import type { PrismaClient } from '../../generated/prisma/index.js';
 
@@ -75,7 +75,7 @@ function getTimeValues(timezone?: string): Record<string, string | number> {
 
 export class ExecutionContext {
   private tempVars: Map<string, any> = new Map();
-  private exprParser: Parser;
+  private exprParser: ReturnType<typeof create>;
 
   constructor(
     private prisma: PrismaClient,
@@ -87,26 +87,27 @@ export class ExecutionContext {
     public readonly eventData: Record<string, string>,
     public readonly timezone?: string,
   ) {
-    this.exprParser = new Parser();
-    // Register custom functions for expression evaluation
-    this.exprParser.functions.contains = (str: string, substr: string) => String(str).includes(String(substr)) ? 1 : 0;
-    this.exprParser.functions.startsWith = (str: string, prefix: string) => String(str).startsWith(String(prefix)) ? 1 : 0;
-    this.exprParser.functions.endsWith = (str: string, suffix: string) => String(str).endsWith(String(suffix)) ? 1 : 0;
-    this.exprParser.functions.lower = (str: string) => String(str).toLowerCase();
-    this.exprParser.functions.upper = (str: string) => String(str).toUpperCase();
-    this.exprParser.functions.length = (str: string) => String(str).length;
-    this.exprParser.functions.split = (str: string, sep: string, index: number) => {
-      const parts = String(str).split(String(sep));
-      return parts[index] ?? '';
-    };
-    // Exact item match in a comma-separated list (e.g. client_servergroups).
-    // Handles both string "8,118,143" and numeric-coerced values (e.g. 143 when
-    // a client has only one group). Avoids substring false-positives like "1430"
-    // matching a search for "143".
-    this.exprParser.functions.hasGroup = (groups: any, groupId: any) => {
-      const items = String(groups).split(',').map((g: string) => g.trim());
-      return items.includes(String(groupId)) ? 1 : 0;
-    };
+    // mathjs replaces expr-eval (no patched expr-eval version exists).
+    // create() with all factories gives a full instance; import() adds
+    // the same custom functions that were registered on the old Parser.
+    this.exprParser = create(all);
+    this.exprParser.import({
+      contains:   (str: string, substr: string) => String(str).includes(String(substr)) ? 1 : 0,
+      startsWith: (str: string, prefix: string) => String(str).startsWith(String(prefix)) ? 1 : 0,
+      endsWith:   (str: string, suffix: string)  => String(str).endsWith(String(suffix)) ? 1 : 0,
+      lower:      (str: string) => String(str).toLowerCase(),
+      upper:      (str: string) => String(str).toUpperCase(),
+      length:     (str: string) => String(str).length,
+      split:      (str: string, sep: string, index: number) => {
+        const parts = String(str).split(String(sep));
+        return parts[index] ?? '';
+      },
+      // Exact item match in a comma-separated list (e.g. client_servergroups).
+      hasGroup: (groups: any, groupId: any) => {
+        const items = String(groups).split(',').map((g: string) => g.trim());
+        return items.includes(String(groupId)) ? 1 : 0;
+      },
+    }, { override: true });
   }
 
   private applyFilter(value: string, filter: string): string {
@@ -221,9 +222,7 @@ export class ExecutionContext {
         return false;
       }
 
-      const rawScope = await this.buildExpressionScope();
-      // Use a null-prototype object so there is no __proto__ chain to pollute.
-      const scope = Object.assign(Object.create(null) as Record<string, unknown>, rawScope);
+      const scope = await this.buildExpressionScope();
 
       // Strip {{...}} template wrappers so scope-variable expressions like
       // "{{temp.savedRoles}} != null" become "temp.savedRoles != null".
