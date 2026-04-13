@@ -12,4 +12,3 @@ Thumbs.db
 packages/backend/generated/
 packages/backend/data/
 packages/backend/prisma/migrations/
-build-and-push.ps1
