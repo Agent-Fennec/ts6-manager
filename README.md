@@ -209,7 +209,7 @@ networks:
 
 ## Development
 
-Requires: Node.js 20+, pnpm 9+
+Requires: Bun 1.3+, pnpm 9+
 
 ```bash
 pnpm install
