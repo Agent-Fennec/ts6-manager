@@ -318,11 +318,41 @@ Express 5 required a webhook route syntax fix for `path-to-regexp` v8. Tailwind 
 
 ### Bot flow engine additions
 
-- **Three new trigger events:** `client_is_recording`, nickname change detection, and a third TS3 event type
-- **Trigger event filters:** UI section in BotEditor to filter which events fire a flow
-- **Generate Token action:** Creates a privilege key from a flow
-- **Set Client Channel Group action:** Assigns a channel group to a client from a flow
+**New trigger events:**
+- `client_recording_started` / `client_recording_stopped` — fires when a client starts or stops recording
+- `client_nickname_changed` — fires when a client changes their nickname
+
+**New actions:**
+- **Generate Token** — creates a privilege key from within a flow
+- **Set Client Channel Group** — assigns a channel group to a client from within a flow
+
+**Other improvements:**
+- **Trigger event filters:** UI section in BotEditor to filter which events fire a flow based on conditions
 - **AFK mover `checkMuteState`:** Option to move double-muted (mic + speakers) clients immediately rather than waiting for the AFK timer
+
+### Flow templates
+
+17 ready-to-use templates covering common server automation:
+
+| Template | Description |
+|----------|-------------|
+| Clock Channel | Updates a channel name with the current time on a cron schedule |
+| Online Counter | Shows live client count in a channel name |
+| Server Stats | Displays uptime, client count, and channel count across separate channels |
+| Animated Channel Name | Scrolling, typewriter, bounce, blink, wave, or alternate-case channel name animation |
+| Welcome Message | Sends a private message to clients when they connect |
+| Support System | Moves clients to a support channel and notifies staff on a chat command |
+| Temp Channel Creator | Creates a temporary channel for a client and deletes it when they leave |
+| Auto-Rank | Assigns a server group based on time spent online |
+| Last-Seen Tracker | Records the last time a client was online in a channel description |
+| AFK Mover | Moves idle clients to an AFK channel after inactivity |
+| Idle Kicker | Kicks clients who remain in the AFK channel too long |
+| Bad Name Checker | Kicks or warns clients with disallowed names |
+| Group Protector | Prevents unauthorized clients from entering protected channels |
+| Webhook → Server Message | Sends a server-wide message triggered by an incoming webhook |
+| Webhook → Assign Group | Assigns a server group to a client via webhook |
+| Webhook → Update Channel | Updates a channel name or description via webhook |
+| Anti-VPN | Kicks clients connecting through known VPN/proxy ranges |
 
 ### Conditions and variable fixes
 
